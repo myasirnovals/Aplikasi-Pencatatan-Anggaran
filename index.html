@@ -11,7 +11,7 @@
 <div class="app-container">
     <header class="app-header">
         <h1>Aplikasi Pencatatan Anggaran</h1>
-        <p>Catat pemasukan dan pengeluaran, lalu cetak laporan anggaran secara detail.</p>
+        <p>Catat pemasukan, pengeluaran, dana darurat, dan cetak laporan secara detail.</p>
     </header>
 
     <section class="summary-section">
@@ -25,8 +25,14 @@
             <p id="totalExpense">Rp 0</p>
         </div>
 
+        <div class="summary-card emergency">
+            <h3>Dana Darurat</h3>
+            <p id="emergencyFund">Rp 0</p>
+            <small id="emergencyWarning"></small>
+        </div>
+
         <div class="summary-card balance">
-            <h3>Sisa Saldo</h3>
+            <h3>Saldo Tersedia</h3>
             <p id="balance">Rp 0</p>
         </div>
     </section>
@@ -47,17 +53,19 @@
                         <option value="">Pilih jenis</option>
                         <option value="income">Pemasukan</option>
                         <option value="expense">Pengeluaran</option>
+                        <option value="emergency">Setor Dana Darurat</option>
+                        <option value="emergency_withdraw">Ambil Dana Darurat</option>
                     </select>
                 </div>
 
                 <div class="form-group">
                     <label for="category">Kategori</label>
-                    <input type="text" id="category" placeholder="Contoh: Gaji, Makan, Transport" required />
+                    <input type="text" id="category" placeholder="Contoh: Gaji, Makan, Dana Darurat" required />
                 </div>
 
                 <div class="form-group">
                     <label for="amount">Jumlah Rupiah</label>
-                    <input type="number" id="amount" placeholder="Contoh: 50000" min="1" required />
+                    <input type="number" id="amount" placeholder="Contoh: 500000" min="1" required />
                 </div>
             </div>
 
@@ -79,8 +87,19 @@
 
             <div class="button-group no-print">
                 <button onclick="printReport()" class="btn-print">Print Laporan</button>
+                <button onclick="exportCSV()" class="btn-secondary">Simpan CSV</button>
+
+                <label for="csvFile" class="btn-import">Load CSV</label>
+                <input type="file" id="csvFile" accept=".csv" onchange="importCSV(event)" hidden />
+
                 <button onclick="clearAllData()" class="btn-danger">Hapus Semua</button>
             </div>
+        </div>
+
+        <div class="info-box no-print">
+            <strong>Catatan Dana Darurat:</strong>
+            Dana darurat wajib diisi minimal <strong>Rp 500.000 setiap bulan</strong>.
+            Jika saldo dana darurat di bawah <strong>Rp 100.000</strong>, aplikasi akan menampilkan peringatan.
         </div>
 
         <div class="table-wrapper">
