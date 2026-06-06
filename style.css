@@ -312,6 +312,67 @@ tbody tr:nth-child(even) {
     padding: 25px;
 }
 
+.period-section {
+    background: white;
+    padding: 22px 25px;
+    border-radius: 18px;
+    margin-bottom: 25px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+}
+
+.period-section h2 {
+    color: #1e3a8a;
+    margin-bottom: 5px;
+}
+
+.period-section p {
+    color: #666;
+}
+
+.period-control {
+    min-width: 250px;
+}
+
+.summary-section {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 18px;
+    margin-bottom: 25px;
+}
+
+.summary-card.opening {
+    border-left-color: #64748b;
+}
+
+.summary-card.opening p {
+    color: #475569;
+}
+
+@media (max-width: 1100px) {
+    .summary-section {
+        grid-template-columns: 1fr;
+    }
+
+    .period-section {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .period-control {
+        width: 100%;
+    }
+}
+
+@media print {
+    .summary-section {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
 @media (max-width: 1000px) {
     .summary-section,
     .form-grid {

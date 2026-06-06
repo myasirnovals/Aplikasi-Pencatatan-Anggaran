@@ -3,25 +3,42 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Aplikasi Pencatatan Anggaran</title>
+    <title>Aplikasi Pencatatan Anggaran Bulanan</title>
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
 <div class="app-container">
     <header class="app-header">
-        <h1>Aplikasi Pencatatan Anggaran</h1>
-        <p>Catat pemasukan, pengeluaran, dana darurat, dan cetak laporan secara detail.</p>
+        <h1>Aplikasi Pencatatan Anggaran Bulanan</h1>
+        <p>Catat pemasukan, pengeluaran, dana darurat, dan laporan berdasarkan bulan aktif.</p>
     </header>
 
+    <section class="period-section no-print">
+        <div>
+            <h2>Periode Aktif</h2>
+            <p>Pilih bulan laporan. Tanggal transaksi akan otomatis dibatasi sesuai bulan ini.</p>
+        </div>
+
+        <div class="period-control">
+            <label for="activeMonth">Bulan</label>
+            <input type="month" id="activeMonth" />
+        </div>
+    </section>
+
     <section class="summary-section">
+        <div class="summary-card opening">
+            <h3>Saldo Awal Bulan</h3>
+            <p id="openingBalance">Rp 0</p>
+        </div>
+
         <div class="summary-card income">
-            <h3>Total Pemasukan</h3>
+            <h3>Pemasukan Bulan Ini</h3>
             <p id="totalIncome">Rp 0</p>
         </div>
 
         <div class="summary-card expense">
-            <h3>Total Pengeluaran</h3>
+            <h3>Pengeluaran Bulan Ini</h3>
             <p id="totalExpense">Rp 0</p>
         </div>
 
@@ -32,7 +49,7 @@
         </div>
 
         <div class="summary-card balance">
-            <h3>Saldo Tersedia</h3>
+            <h3>Saldo Akhir Bulan</h3>
             <p id="balance">Rp 0</p>
         </div>
     </section>
@@ -81,7 +98,7 @@
     <section class="table-section">
         <div class="table-header">
             <div>
-                <h2>Laporan Detail Anggaran</h2>
+                <h2 id="reportTitle">Laporan Detail Anggaran</h2>
                 <p id="printDate"></p>
             </div>
 
@@ -97,9 +114,9 @@
         </div>
 
         <div class="info-box no-print">
-            <strong>Catatan Dana Darurat:</strong>
-            Dana darurat wajib diisi minimal <strong>Rp 500.000 setiap bulan</strong>.
-            Jika saldo dana darurat di bawah <strong>Rp 100.000</strong>, aplikasi akan menampilkan peringatan.
+            <strong>Catatan:</strong>
+            Data laporan hanya menampilkan transaksi pada bulan aktif.
+            Saldo akhir bulan sebelumnya otomatis menjadi saldo awal bulan berikutnya.
         </div>
 
         <div class="table-wrapper">

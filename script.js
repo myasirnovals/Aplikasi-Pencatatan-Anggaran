@@ -1,20 +1,33 @@
 const budgetForm = document.getElementById("budgetForm");
 const budgetTableBody = document.getElementById("budgetTableBody");
 
+const activeMonthInput = document.getElementById("activeMonth");
+const openingBalanceElement = document.getElementById("openingBalance");
 const totalIncomeElement = document.getElementById("totalIncome");
 const totalExpenseElement = document.getElementById("totalExpense");
 const emergencyFundElement = document.getElementById("emergencyFund");
 const emergencyWarningElement = document.getElementById("emergencyWarning");
 const balanceElement = document.getElementById("balance");
 const printDateElement = document.getElementById("printDate");
+const reportTitleElement = document.getElementById("reportTitle");
 
 const MIN_MONTHLY_EMERGENCY_FUND = 500000;
 const LOW_EMERGENCY_FUND_LIMIT = 100000;
 
 let budgetData = JSON.parse(localStorage.getItem("budgetData")) || [];
+let activeMonth = localStorage.getItem("activeMonth") || getCurrentMonthValue();
 
 document.addEventListener("DOMContentLoaded", () => {
-    setTodayDate();
+    activeMonthInput.value = activeMonth;
+    applyDateLimitByActiveMonth();
+    renderBudgetData();
+});
+
+activeMonthInput.addEventListener("change", function () {
+    activeMonth = this.value;
+    localStorage.setItem("activeMonth", activeMonth);
+
+    applyDateLimitByActiveMonth();
     renderBudgetData();
 });
 
@@ -32,17 +45,23 @@ budgetForm.addEventListener("submit", function (event) {
         return;
     }
 
-    if (type === "emergency") {
-        const totalAvailableIncome = calculateAvailableBalance();
+    if (!isDateInsideActiveMonth(date)) {
+        alert("Tanggal transaksi harus berada dalam bulan aktif.");
+        applyDateLimitByActiveMonth();
+        return;
+    }
 
-        if (amount > totalAvailableIncome) {
-            alert("Setoran dana darurat tidak boleh melebihi saldo tersedia dari pemasukan.");
+    if (type === "emergency") {
+        const currentMonthBalance = calculateMonthEndingBalance(activeMonth);
+
+        if (amount > currentMonthBalance) {
+            alert("Setoran dana darurat tidak boleh melebihi saldo tersedia pada bulan aktif.");
             return;
         }
     }
 
     if (type === "emergency_withdraw") {
-        const emergencyFund = calculateEmergencyFund();
+        const emergencyFund = calculateEmergencyFundUntilMonth(activeMonth);
 
         if (amount > emergencyFund) {
             alert("Dana darurat tidak mencukupi untuk diambil.");
@@ -60,32 +79,76 @@ budgetForm.addEventListener("submit", function (event) {
     };
 
     budgetData.push(newData);
+    sortBudgetData();
     saveToLocalStorage();
     renderBudgetData();
     budgetForm.reset();
-    setTodayDate();
+    applyDateLimitByActiveMonth();
 });
 
-function setTodayDate() {
-    const today = new Date().toISOString().split("T")[0];
-    document.getElementById("date").value = today;
+function getCurrentMonthValue() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+
+    return `${year}-${month}`;
+}
+
+function applyDateLimitByActiveMonth() {
+    const dateInput = document.getElementById("date");
+
+    const [year, month] = activeMonth.split("-").map(Number);
+    const firstDate = `${year}-${String(month).padStart(2, "0")}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const lastDate = `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+    dateInput.min = firstDate;
+    dateInput.max = lastDate;
+
+    const today = new Date();
+    const todayValue = today.toISOString().split("T")[0];
+
+    if (todayValue >= firstDate && todayValue <= lastDate) {
+        dateInput.value = todayValue;
+    } else {
+        dateInput.value = firstDate;
+    }
+}
+
+function isDateInsideActiveMonth(dateString) {
+    return getMonthKeyFromDate(dateString) === activeMonth;
+}
+
+function getMonthKeyFromDate(dateString) {
+    return dateString.slice(0, 7);
 }
 
 function saveToLocalStorage() {
     localStorage.setItem("budgetData", JSON.stringify(budgetData));
 }
 
+function sortBudgetData() {
+    budgetData.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+
+        return dateA - dateB;
+    });
+}
+
 function renderBudgetData() {
     budgetTableBody.innerHTML = "";
 
-    if (budgetData.length === 0) {
+    const monthlyData = getDataByMonth(activeMonth);
+
+    if (monthlyData.length === 0) {
         budgetTableBody.innerHTML = `
       <tr>
-        <td colspan="7" class="empty-row">Belum ada catatan anggaran.</td>
+        <td colspan="7" class="empty-row">Belum ada catatan anggaran pada bulan ini.</td>
       </tr>
     `;
     } else {
-        budgetData.forEach((item, index) => {
+        monthlyData.forEach((item, index) => {
             const row = document.createElement("tr");
             const typeInfo = getTypeInfo(item.type);
 
@@ -106,7 +169,12 @@ function renderBudgetData() {
     }
 
     calculateSummary();
+    updateReportTitle();
     updatePrintDate();
+}
+
+function getDataByMonth(monthKey) {
+    return budgetData.filter(item => getMonthKeyFromDate(item.date) === monthKey);
 }
 
 function getTypeInfo(type) {
@@ -145,54 +213,112 @@ function getTypeInfo(type) {
 }
 
 function calculateSummary() {
-    const totalIncome = calculateTotalByType("income");
-    const totalExpense = calculateTotalByType("expense");
-    const emergencyFund = calculateEmergencyFund();
-    const balance = calculateAvailableBalance();
+    const openingBalance = calculateOpeningBalance(activeMonth);
+    const monthlyIncome = calculateMonthlyTotalByType(activeMonth, "income");
+    const monthlyExpense = calculateMonthlyTotalByType(activeMonth, "expense");
+    const monthlyEmergencyDeposit = calculateMonthlyTotalByType(activeMonth, "emergency");
+    const monthlyEmergencyWithdraw = calculateMonthlyTotalByType(activeMonth, "emergency_withdraw");
 
-    totalIncomeElement.textContent = formatRupiah(totalIncome);
-    totalExpenseElement.textContent = formatRupiah(totalExpense);
+    const emergencyFund = calculateEmergencyFundUntilMonth(activeMonth);
+
+    const endingBalance =
+        openingBalance +
+        monthlyIncome -
+        monthlyExpense -
+        monthlyEmergencyDeposit +
+        monthlyEmergencyWithdraw;
+
+    openingBalanceElement.textContent = formatRupiah(openingBalance);
+    totalIncomeElement.textContent = formatRupiah(monthlyIncome);
+    totalExpenseElement.textContent = formatRupiah(monthlyExpense);
     emergencyFundElement.textContent = formatRupiah(emergencyFund);
-    balanceElement.textContent = formatRupiah(balance);
+    balanceElement.textContent = formatRupiah(endingBalance);
 
-    if (balance < 0) {
+    if (endingBalance < 0) {
         balanceElement.style.color = "#dc2626";
     } else {
         balanceElement.style.color = "#2563eb";
     }
 
-    updateEmergencyWarning(emergencyFund);
+    updateEmergencyWarning(emergencyFund, monthlyEmergencyDeposit);
 }
 
-function calculateTotalByType(type) {
+function calculateMonthlyTotalByType(monthKey, type) {
     return budgetData
-        .filter(item => item.type === type)
+        .filter(item => getMonthKeyFromDate(item.date) === monthKey && item.type === type)
         .reduce((total, item) => total + Number(item.amount), 0);
 }
 
-function calculateEmergencyFund() {
-    const emergencyDeposit = calculateTotalByType("emergency");
-    const emergencyWithdraw = calculateTotalByType("emergency_withdraw");
+function calculateOpeningBalance(monthKey) {
+    let balance = 0;
 
-    return emergencyDeposit - emergencyWithdraw;
+    const previousData = budgetData.filter(item => {
+        return getMonthKeyFromDate(item.date) < monthKey;
+    });
+
+    previousData.forEach(item => {
+        if (item.type === "income") {
+            balance += Number(item.amount);
+        }
+
+        if (item.type === "expense") {
+            balance -= Number(item.amount);
+        }
+
+        if (item.type === "emergency") {
+            balance -= Number(item.amount);
+        }
+
+        if (item.type === "emergency_withdraw") {
+            balance += Number(item.amount);
+        }
+    });
+
+    return balance;
 }
 
-function calculateAvailableBalance() {
-    const totalIncome = calculateTotalByType("income");
-    const totalExpense = calculateTotalByType("expense");
-    const emergencyFund = calculateEmergencyFund();
+function calculateMonthEndingBalance(monthKey) {
+    const openingBalance = calculateOpeningBalance(monthKey);
+    const monthlyIncome = calculateMonthlyTotalByType(monthKey, "income");
+    const monthlyExpense = calculateMonthlyTotalByType(monthKey, "expense");
+    const monthlyEmergencyDeposit = calculateMonthlyTotalByType(monthKey, "emergency");
+    const monthlyEmergencyWithdraw = calculateMonthlyTotalByType(monthKey, "emergency_withdraw");
 
-    return totalIncome - totalExpense - emergencyFund;
+    return (
+        openingBalance +
+        monthlyIncome -
+        monthlyExpense -
+        monthlyEmergencyDeposit +
+        monthlyEmergencyWithdraw
+    );
 }
 
-function updateEmergencyWarning(emergencyFund) {
-    const monthlyDeposit = calculateCurrentMonthEmergencyDeposit();
+function calculateEmergencyFundUntilMonth(monthKey) {
+    let emergencyFund = 0;
 
+    const dataUntilThisMonth = budgetData.filter(item => {
+        return getMonthKeyFromDate(item.date) <= monthKey;
+    });
+
+    dataUntilThisMonth.forEach(item => {
+        if (item.type === "emergency") {
+            emergencyFund += Number(item.amount);
+        }
+
+        if (item.type === "emergency_withdraw") {
+            emergencyFund -= Number(item.amount);
+        }
+    });
+
+    return emergencyFund;
+}
+
+function updateEmergencyWarning(emergencyFund, monthlyEmergencyDeposit) {
     let warningMessages = [];
 
-    if (monthlyDeposit < MIN_MONTHLY_EMERGENCY_FUND) {
+    if (monthlyEmergencyDeposit < MIN_MONTHLY_EMERGENCY_FUND) {
         warningMessages.push(
-            `⚠️ Setoran bulan ini kurang dari ${formatRupiah(MIN_MONTHLY_EMERGENCY_FUND)}`
+            `⚠️ Setoran dana darurat bulan ini kurang dari ${formatRupiah(MIN_MONTHLY_EMERGENCY_FUND)}`
         );
     }
 
@@ -211,24 +337,6 @@ function updateEmergencyWarning(emergencyFund) {
     }
 }
 
-function calculateCurrentMonthEmergencyDeposit() {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    return budgetData
-        .filter(item => {
-            if (item.type !== "emergency") return false;
-
-            const itemDate = new Date(item.date);
-            return (
-                itemDate.getMonth() === currentMonth &&
-                itemDate.getFullYear() === currentYear
-            );
-        })
-        .reduce((total, item) => total + Number(item.amount), 0);
-}
-
 function deleteBudgetItem(id) {
     const confirmation = confirm("Yakin ingin menghapus catatan ini?");
 
@@ -245,7 +353,7 @@ function clearAllData() {
         return;
     }
 
-    const confirmation = confirm("Yakin ingin menghapus semua catatan anggaran?");
+    const confirmation = confirm("Yakin ingin menghapus semua catatan anggaran dari seluruh bulan?");
 
     if (!confirmation) return;
 
@@ -286,7 +394,7 @@ function exportCSV() {
     const fileDate = new Date().toISOString().split("T")[0];
 
     link.href = url;
-    link.download = `data-anggaran-${fileDate}.csv`;
+    link.download = `data-anggaran-semua-bulan-${fileDate}.csv`;
     link.click();
 
     URL.revokeObjectURL(url);
@@ -309,12 +417,13 @@ function importCSV(event) {
         }
 
         const confirmation = confirm(
-            "Load CSV akan mengganti data yang sedang ada di aplikasi. Lanjutkan?"
+            "Load CSV akan mengganti semua data yang sedang ada di aplikasi. Lanjutkan?"
         );
 
         if (!confirmation) return;
 
         budgetData = parsedData;
+        sortBudgetData();
         saveToLocalStorage();
         renderBudgetData();
 
@@ -400,6 +509,18 @@ function splitCSVLine(line) {
 
     result.push(current);
     return result;
+}
+
+function updateReportTitle() {
+    const [year, month] = activeMonth.split("-").map(Number);
+    const date = new Date(year, month - 1, 1);
+
+    const formattedMonth = new Intl.DateTimeFormat("id-ID", {
+        month: "long",
+        year: "numeric"
+    }).format(date);
+
+    reportTitleElement.textContent = `Laporan Detail Anggaran - ${formattedMonth}`;
 }
 
 function formatRupiah(number) {
