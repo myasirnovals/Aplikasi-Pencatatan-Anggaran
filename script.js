@@ -215,26 +215,29 @@ function getTypeInfo(type) {
 function calculateSummary() {
     const openingBalance = calculateOpeningBalance(activeMonth);
     const monthlyIncome = calculateMonthlyTotalByType(activeMonth, "income");
-    const monthlyExpense = calculateMonthlyTotalByType(activeMonth, "expense");
+    const monthlyNormalExpense = calculateMonthlyTotalByType(activeMonth, "expense");
     const monthlyEmergencyDeposit = calculateMonthlyTotalByType(activeMonth, "emergency");
     const monthlyEmergencyWithdraw = calculateMonthlyTotalByType(activeMonth, "emergency_withdraw");
 
     const emergencyFund = calculateEmergencyFundUntilMonth(activeMonth);
 
-    const endingBalance =
-        openingBalance +
-        monthlyIncome -
-        monthlyExpense -
+    const totalMonthlyExpense =
+        monthlyNormalExpense +
         monthlyEmergencyDeposit +
         monthlyEmergencyWithdraw;
 
+    const remainingBudget =
+        openingBalance +
+        monthlyIncome -
+        totalMonthlyExpense;
+
     openingBalanceElement.textContent = formatRupiah(openingBalance);
     totalIncomeElement.textContent = formatRupiah(monthlyIncome);
-    totalExpenseElement.textContent = formatRupiah(monthlyExpense);
+    totalExpenseElement.textContent = formatRupiah(totalMonthlyExpense);
     emergencyFundElement.textContent = formatRupiah(emergencyFund);
-    balanceElement.textContent = formatRupiah(endingBalance);
+    balanceElement.textContent = formatRupiah(remainingBudget);
 
-    if (endingBalance < 0) {
+    if (remainingBudget < 0) {
         balanceElement.style.color = "#dc2626";
     } else {
         balanceElement.style.color = "#2563eb";
@@ -270,7 +273,7 @@ function calculateOpeningBalance(monthKey) {
         }
 
         if (item.type === "emergency_withdraw") {
-            balance += Number(item.amount);
+            balance -= Number(item.amount);
         }
     });
 
@@ -280,15 +283,15 @@ function calculateOpeningBalance(monthKey) {
 function calculateMonthEndingBalance(monthKey) {
     const openingBalance = calculateOpeningBalance(monthKey);
     const monthlyIncome = calculateMonthlyTotalByType(monthKey, "income");
-    const monthlyExpense = calculateMonthlyTotalByType(monthKey, "expense");
+    const monthlyNormalExpense = calculateMonthlyTotalByType(monthKey, "expense");
     const monthlyEmergencyDeposit = calculateMonthlyTotalByType(monthKey, "emergency");
     const monthlyEmergencyWithdraw = calculateMonthlyTotalByType(monthKey, "emergency_withdraw");
 
     return (
         openingBalance +
         monthlyIncome -
-        monthlyExpense -
-        monthlyEmergencyDeposit +
+        monthlyNormalExpense -
+        monthlyEmergencyDeposit -
         monthlyEmergencyWithdraw
     );
 }
